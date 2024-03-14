@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>todos.quine</title>
+</head>
+<body>
+<main>
+<h1>todos.quine</h1>
+<ul>
+<li data-todo="☐">Never graduate</li>
+<li data-todo="☐">Work at the edge of my abilities</li>
+<li data-todo="☐">Build my volitional muscles</li>
+</ul>
+<button onclick="window.newTodo()">new</button>
+</main>
+<footer>
+<button onclick="window.export()">save a copy of this source code...</button>
+</footer>
+<style>
+  :root {
+    /* you need this for some reason or the CSS breaks */
+  }
+  * {
+    font-size: 14px;
+    line-height: 1.5em;
+    font-weight: normal;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: monospace;
+    display: block;
+    color: #333;
+  }
+  html {
+    padding: 1.25vw;
+  }
+  script, style {
+    white-space: pre-wrap;
+  }
+  main {
+    background: #eee;
+    padding: 0 1.25vw;
+    margin: 0 -1.25vw;
+  }
+  li[data-todo] {
+    cursor:default;
+  }
+
+  span[contenteditable] {
+    display:inline;
+    cursor:text;
+  }
+  span[contenteditable], button {
+    border: 1px solid #000;
+    padding: 0px 2px;
+    border-radius: 5px;
+    background: #fff;
+    color: #111;
+  }
+  li[data-todo="☑"] >* {
+    text-decoration: line-through;
+  }
+</style>
+<script>
+  const states = ["☐", "☑"];
+  const seen = new WeakMap();
+  const editors = new WeakMap();
+
+  function getAttrs(node) {
+    if (!node.hasAttributes()) {
+      return "";
+    }
+    let result = "";
+    for (const attr of node.attributes) {
+      result += ` ${attr.name}="${attr.value}"`;
+    }
+    return result;
+  }
+  function toggle(evt) {
+    if (evt.target.dataset.todo) {
+      const state = evt.target.dataset.todo;
+      const newState = states[states.indexOf(state) + 1 % states.length];
+      window.newTodo(evt.target, newState, evt.target.querySelector("span").textContent);
+      evt.target.remove();
+      evt.stopPropagation();
+    }
+  }
+  function redraw() {
+    const treeWalker = document.createTreeWalker(
+      document,
+      NodeFilter.SHOW_ALL,
+    );
+    while (treeWalker.nextNode()) {
+      const node = treeWalker.currentNode;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (seen.has(node)) {
+          continue;
+        }
+        const range = document.createRange();
+        const edit = document.createElement("span");
+        if (node.dataset?.todo) {
+          range.selectNodeContents(node);
+          edit.contentEditable = "plaintext-only";
+          editors.set(edit, true);
+          seen.set(edit, true);
+          range.surroundContents(edit);
+        }
+        // prepend node text
+        const open = document.createTextNode(`<${node.nodeName.toLowerCase()}${getAttrs(node)}>`)
+        node.insertBefore(open, node.childNodes[0]);
+
+        if (node.nodeName !== "META") {
+          const close = document.createTextNode(`</${node.nodeName.toLowerCase()}>`)
+          node.appendChild(close);
+        }
+        // mark as "seen"
+        seen.set(node, true)
+      }
+    }
+  }
+  window.export = async function() {
+    const txt = document.documentElement.textContent;
+    const blob = new Blob([txt], {type: "text/html"});
+    // thanks, stackoverflow!
+    const dataUrl = await new Promise(r => {let a=new FileReader(); a.onload=r; a.readAsDataURL(blob)}).then(e => e.target.result);
+    const link = document.createElement('a');
+    link.download = "todos.html";
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+  window.newTodo = function(at, todo, contents) {
+    const ul = document.querySelector("ul");
+    const li = document.createElement("li");
+    li.dataset.todo = todo ?? states[0];
+    li.innerText = contents ?? "";
+    ul.insertBefore(li, at ?? ul.lastChild);
+    redraw();
+    li.focus();
+    const span = li.querySelector("span");
+    span.focus();
+    window.getSelection().selectAllChildren(span);
+    window.getSelection().collapseToEnd();
+  }
+  redraw();
+  document.addEventListener("click", toggle, {passive: true})
+  document.addEventListener("input", (evt) => {
+    const walker = document.createTreeWalker(evt.target, NodeFilter.SHOW_TEXT);
+    const todos = [];
+    const parent = evt.target.parentNode;
+    while (walker.nextNode()) {
+      todos.push(walker.currentNode.textContent);
+    }
+    if (todos.length > 1) {
+    // split todos
+      for (const todo of todos) {
+        window.newTodo(parent, parent.dataset.todo, todo);
+      }
+      parent.remove();
+    }
+    else if (evt.target.querySelectorAll("br").length > 0) {
+      // contenteditable will introduce <br> when user types <enter>
+      window.newTodo(parent.nextElementSibling, undefined, undefined);
+      evt.target.querySelectorAll("br").forEach(el => el.remove())
+    }
+     else if (evt.target.textContent.length === 0) {
+        parent.remove();
+        const span = document.querySelector("ul").lastElementChild.querySelector("span")
+        span.focus();
+        window.getSelection().selectAllChildren(span);
+        window.getSelection().collapseToEnd();
+      }
+  }, {passive: true})
+  document.addEventListener("keydown", (evt) => {
+    const {code} = evt;
+    if (editors.has(evt.target)) {
+      const parent = evt.target.parentNode;
+      let sibling;
+      if (code === "Backspace" && evt.target.textContent.length === 0) {
+        sibling = parent.previousElementSibling;
+        parent.remove();
+      }
+      if (code === "ArrowUp") {
+        sibling = parent.previousElementSibling;
+      }
+      if (code === "ArrowDown") {
+        sibling = parent.nextElementSibling;
+      }
+      if (sibling) {
+        const span = sibling.querySelector("span");
+        span.focus();
+        window.getSelection().selectAllChildren(span);
+        window.getSelection().collapseToEnd();
+      }
+    }
+  }, {passive: true})
+</script>
+</body>
+</html>
