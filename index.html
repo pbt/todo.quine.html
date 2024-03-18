@@ -1,71 +1,84 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html><!--  hello. this is an interactive website quine  -->
+<head><!--  a quine is a program that outputs its own source code  -->
 <meta charset="utf-8">
-<title>todos.quine</title>
-</head>
-<body>
-<main>
-<h1>todos.quine</h1>
-<ul>
-<li data-todo="☐">Never graduate</li>
-<li data-todo="☐">Work at the edge of my abilities</li>
-<li data-todo="☐">Build my volitional muscles</li>
-</ul>
-<button onclick="window.newTodo()">new</button>
-</main>
-<footer>
-<button onclick="window.export()">save a copy of this source code...</button>
-</footer>
-<style>
-  :root {
-    /* you need this for some reason or the CSS breaks */
-  }
+<title>
+todos
+</title> </head>
+
+<body><!-- inspect the source by right-clicking and selecting something like "view page source" --> <main>
+<!-- it should look identical to the content of this page --> <h1>
+todos
+</h1> <!-- this quine is also interactive. i decided to make a todo list app, because to-do lists are very popular (see: https://todomvc.com). plus we as a culture are obsessed with tracking and completing tasks. you can edit each task by just clicking inside the rounded rectangle and typing. --> <ul>
+<li data-todo="☐"><span contenteditable="true">groceries</span></li>
+<li data-todo="☐"><span contenteditable="true">get a job</span></li>
+<li data-todo="☐"><span contenteditable="true">worry about life</span></li>
+</ul> <!-- anyway, this button works just like a button: --> <button onclick="globalThis.newTodo()">new todo</button> 
+</main> <!-- did you click it? what did you think? try typing inside the text boxes and clicking on the checkboxes. see how it updates? --> <footer>
+<!-- if you don't believe me, copy the contents of this page to a text editor, save as an HTML file, and open that file up (no server needed.) i even made something that does it for you: --> <button onclick="globalThis.export()">save a copy of this page...</button> <!-- read on to figure out how i did this... -->
+</footer>  <style>
+
+  /* first off, we need to set everything to the same font.
+     this is mostly for aesthetic purposes: */
   * {
     font-size: 14px;
-    line-height: 1.5em;
+    line-height: 1.5rem;
     font-weight: normal;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: monospace;
-    display: block;
-    color: #333;
+    /* when i set this to display: block, i am setting _all_ elements to display: block, including
+      head, meta, title, script, and style, which are ordinarily invisible. there's nothing special
+      about how the browser treats these tags; they're just hidden by default. */
   }
   html {
-    padding: 1.25vw;
+    color: #333;
+    padding: 1.5rem;
+    font-family: Menlo, monospace;
+    white-space: pre-line; /* this helps us control the whitespace. we'll see why we need this later */
   }
+  html * {
+    white-space: pre-line;
+  }
+  /* sorry. you have to make hacks somewhere, as in all of life. */
   script, style {
+    margin-top: -1.5rem; 
+  }
+  head {
+    margin-bottom: -1.5rem;
+  }
+  /* preserving whitespace */
+  script, style, html, head, title {
+    /* we want this to preserve the whitespace.*/
+    display: block;
     white-space: pre-wrap;
   }
-  main {
-    background: #eee;
-    padding: 0 1.25vw;
-    margin: 0 -1.25vw;
+  ul {
+    white-space: normal;
   }
   li[data-todo] {
     cursor:default;
+    list-style-type: none;
   }
-
   span[contenteditable] {
-    display:inline;
-    cursor:text;
+    display: inline;
+    cursor: text;
   }
   span[contenteditable], button {
     border: 1px solid #000;
     padding: 0px 2px;
     border-radius: 5px;
+    font-family: Menlo, monospace;
     background: #fff;
     color: #111;
   }
   li[data-todo="☑"] >* {
     text-decoration: line-through;
   }
-</style>
-<script>
-  const states = ["☐", "☑"];
-  const seen = new WeakMap();
-  const editors = new WeakMap();
+  ::highlight(comment) {
+    color: green !important;
+  }
+</style> <script>
 
   function getAttrs(node) {
     if (!node.hasAttributes()) {
@@ -81,45 +94,93 @@
     if (evt.target.dataset.todo) {
       const state = evt.target.dataset.todo;
       const newState = states[states.indexOf(state) + 1 % states.length];
-      window.newTodo(evt.target, newState, evt.target.querySelector("span").textContent);
+      globalThis.newTodo(evt.target, newState, evt.target.querySelector("span").textContent);
+      for (const el of seen.get(evt.target)) {
+        el.remove();
+      }
+      seen.delete(evt.target);
       evt.target.remove();
       evt.stopPropagation();
     }
   }
-  function redraw() {
+  function render() {
     const treeWalker = document.createTreeWalker(
       document,
       NodeFilter.SHOW_ALL,
     );
+    const commentHighlights = [];
     while (treeWalker.nextNode()) {
       const node = treeWalker.currentNode;
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        if (seen.has(node)) {
-          continue;
-        }
+      if (seen.has(node)) {
+        continue;
+      }
+      if (node.nodeType === Node.COMMENT_NODE) {
+        const cmt = document.createTextNode(`<!-- ${node.data} -->`)
+        node.parentNode.insertBefore(cmt, node);
+        textnodes.set(cmt, {type: node.nodeType});
+        seen.set(cmt, true);
+        seen.set(node, true);
         const range = document.createRange();
-        const edit = document.createElement("span");
-        if (node.dataset?.todo) {
-          range.selectNodeContents(node);
-          edit.contentEditable = "plaintext-only";
-          editors.set(edit, true);
-          seen.set(edit, true);
-          range.surroundContents(edit);
+        range.selectNodeContents(cmt);
+        commentHighlights.push(range);
+      }
+      if (node.nodeType === Node.DOCUMENT_TYPE_NODE) {
+        seen.set(node, true);
+      }
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        let open, close;
+        const range = document.createRange();
+        // you have to check for the explicit contentEditable attribute; if you use
+        // isContentEditable here, it will result in undefined behavior because _every_
+        // node child of a contentEditable node is by definition contentEditable
+        if (node.contentEditable === "true") {
+          editors.set(node, true);
         }
-        // prepend node text
-        const open = document.createTextNode(`<${node.nodeName.toLowerCase()}${getAttrs(node)}>`)
-        node.insertBefore(open, node.childNodes[0]);
 
-        if (node.nodeName !== "META") {
-          const close = document.createTextNode(`</${node.nodeName.toLowerCase()}>`)
-          node.appendChild(close);
+        const insertOutside = node.nodeName !== "HTML" && node.nodeName !== "HEAD" && node.nodeName !== "LI";
+
+        // prepend node text
+        open = document.createTextNode(`<${node.nodeName.toLowerCase()}${getAttrs(node)}>`)
+        if (insertOutside) {
+          node.parentNode.insertBefore(open, node);
+        } else {
+          node.insertBefore(open, node.firstChild);
         }
-        // mark as "seen"
-        seen.set(node, true)
+        textnodes.set(open, {type: node.nodeType});
+        seen.set(open, true);
+
+        if (node.nodeName === "HTML") {
+          const doctype = document.createTextNode(`<!DOCTYPE html>\n`);
+          node.insertBefore(doctype, node.firstChild);
+          seen.set(doctype, true);
+        }
+        
+        if (node.nodeName !== "META" && node.nodeName !== "BR") {
+          // meta is a self-closing tag
+          close = document.createTextNode(`</${node.nodeName.toLowerCase()}>`)
+          if (insertOutside) {
+            node.parentNode.insertBefore(close, node.nextSibling);
+          } else {
+            node.appendChild(close);
+          }
+          textnodes.set(close, {type: node.nodeType});
+          seen.set(close, true);
+        }
+        // mark as "seen" so we don't process this again
+        seen.set(node, [open, close]);
       }
     }
+    if (commentHighlights.length > 0 && CSS.highlights) {
+      CSS.highlights.set("comment", new Highlight(...commentHighlights))
+    }
   }
-  window.export = async function() {
+
+  const states = ["☐", "☑"];
+  const seen = new WeakMap();
+  const editors = new WeakMap();
+  const textnodes = new WeakMap();
+
+  globalThis.export = async function() {
     const txt = document.documentElement.textContent;
     const blob = new Blob([txt], {type: "text/html"});
     // thanks, stackoverflow!
@@ -131,47 +192,56 @@
     link.click();
     link.remove();
   }
-  window.newTodo = function(at, todo, contents) {
+  globalThis.newTodo = function(at, todo, contents) {
     const ul = document.querySelector("ul");
     const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.contentEditable = true;
     li.dataset.todo = todo ?? states[0];
-    li.innerText = contents ?? "";
+    span.innerHTML = contents ?? "";
+    li.appendChild(span);
     ul.insertBefore(li, at ?? ul.lastChild);
-    redraw();
+    render();
     li.focus();
-    const span = li.querySelector("span");
     span.focus();
-    window.getSelection().selectAllChildren(span);
-    window.getSelection().collapseToEnd();
+    globalThis.getSelection().selectAllChildren(span);
+    globalThis.getSelection().collapseToEnd();
   }
-  redraw();
+  render();
   document.addEventListener("click", toggle, {passive: true})
   document.addEventListener("input", (evt) => {
-    const walker = document.createTreeWalker(evt.target, NodeFilter.SHOW_TEXT);
-    const todos = [];
-    const parent = evt.target.parentNode;
-    while (walker.nextNode()) {
-      todos.push(walker.currentNode.textContent);
-    }
-    if (todos.length > 1) {
-    // split todos
-      for (const todo of todos) {
-        window.newTodo(parent, parent.dataset.todo, todo);
+    if (editors.has(evt.target)) {
+      // const walker = document.createTreeWalker(evt.target, NodeFilter.SHOW_TEXT);
+      const todos = [];
+      const parent = evt.target.parentNode;
+      for (const node of evt.target.childNodes) {
+        const txt = node.textContent;
+        if (txt.length > 0) {
+          todos.push(node.textContent);
+        }
       }
-      parent.remove();
-    }
-    else if (evt.target.querySelectorAll("br").length > 0) {
-      // contenteditable will introduce <br> when user types <enter>
-      window.newTodo(parent.nextElementSibling, undefined, undefined);
-      evt.target.querySelectorAll("br").forEach(el => el.remove())
-    }
-     else if (evt.target.textContent.length === 0) {
+      if (todos.length > 1) {
+        // split todos
+        for (const todo of todos) {
+          globalThis.newTodo(parent, parent.dataset.todo, todo);
+        }
+        parent.remove();
+      }
+      else if (evt.target.querySelectorAll("br").length > 0) {
+        // contenteditable will introduce <br> when user types <enter>
+        evt.target.querySelectorAll("br").forEach(el => el.remove())
+        globalThis.newTodo(parent.nextElementSibling, undefined, undefined);
+      }
+      else if (evt.target.textContent.length === 0) {
+        // deleted a todo
         parent.remove();
         const span = document.querySelector("ul").lastElementChild.querySelector("span")
         span.focus();
-        window.getSelection().selectAllChildren(span);
-        window.getSelection().collapseToEnd();
+        globalThis.getSelection().selectAllChildren(span);
+        globalThis.getSelection().collapseToEnd();
       }
+      render();
+    }
   }, {passive: true})
   document.addEventListener("keydown", (evt) => {
     const {code} = evt;
@@ -179,6 +249,7 @@
       const parent = evt.target.parentNode;
       let sibling;
       if (code === "Backspace" && evt.target.textContent.length === 0) {
+        // deleted a todo
         sibling = parent.previousElementSibling;
         parent.remove();
       }
@@ -191,11 +262,9 @@
       if (sibling) {
         const span = sibling.querySelector("span");
         span.focus();
-        window.getSelection().selectAllChildren(span);
-        window.getSelection().collapseToEnd();
+        globalThis.getSelection().selectAllChildren(span);
+        globalThis.getSelection().collapseToEnd();
       }
     }
   }, {passive: true})
-</script>
-</body>
-</html>
+</script> </body></html>
