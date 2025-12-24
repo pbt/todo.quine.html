@@ -39,7 +39,7 @@ be quine to one another!
     }
 
     html {
-      color: #333;
+      color: light-dark(#333,#ddd);
       padding: 1.5rem;
       width: min(100vw, 800px);
       margin: 0 auto;
@@ -110,13 +110,13 @@ be quine to one another!
     button {
       padding: 0px 2px;
       font-family: Menlo, monospace;
-      background: #fff;
-      color: #111;
+      background: light-dark(#fff,#000);
+      color: light-dark(#111,#eee);
     }
 
     span[contenteditable=true] {
-      border: 1px inset #000;
-      background: #eee;
+      border: 1px inset light-dark(#000,#fff);
+      background: light-dark(#eee,#111);
       display: block;
       cursor: text;
       white-space: normal;
@@ -127,16 +127,15 @@ be quine to one another!
     }
 
     button {
-      border: 1px outset #000;
-      border-top-color: #fff;
-      border-left-color: #fff;
+      border: 1px outset light-dark(#000,#fff);
+      border-top-color: light-dark(#fff,#000);
+      border-left-color: light-dark(#fff,#000);
       background: #ccc;
     }
 
     button:active {
-      border: 1px inset #000;
-      background: #aaa;
-
+      border: 1px inset light-dark(#000,#fff);
+      background: light-dark(#aaa,#333);
     }
 
     li[_="☑"]>* {
