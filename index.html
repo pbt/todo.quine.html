@@ -43,7 +43,7 @@ be quine to one another!
       padding: 1.5rem;
       width: min(100vw, 800px);
       margin: 0 auto;
-      font-family: Menlo, monospace;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace; 
     }
   }
 
@@ -109,7 +109,7 @@ be quine to one another!
     span[contenteditable=true],
     button {
       padding: 0px 2px;
-      font-family: Menlo, monospace;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
       background: light-dark(#fff,#000);
       color: light-dark(#111,#eee);
     }
@@ -123,7 +123,7 @@ be quine to one another!
     }
 
     span[contenteditable=true]:focus {
-      background: #fff;
+      background: light-dark(#fff,#000);
     }
 
     button {
@@ -176,8 +176,8 @@ be quine to one another!
           editors.set(node, true);
         }
 
-        const insertOutside = node.nodeName !== "HTML" && node.nodeName !== "HEAD" && node.nodeName !== "LI" && node.nodeName !== "TITLE";
-
+        const insertOutside = !(["HTML", "HEAD", "LI", "TITLE"].includes(node.nodeName));
+        
         // prepend node text
         open = document.createTextNode(`<${node.nodeName.toLowerCase()}${getAttrs(node)}>`)
         if (insertOutside) {
